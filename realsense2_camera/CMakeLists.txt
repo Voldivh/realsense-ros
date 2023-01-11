@@ -93,7 +93,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(builtin_interfaces REQUIRED)
-find_package(cv_bridge REQUIRED)
+find_package(cv_bridge REQUIRED 3.3.0)
 find_package(image_transport REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
