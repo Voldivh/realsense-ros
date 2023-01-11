@@ -22,8 +22,13 @@ class image_publisher
 {
 public:
     virtual void publish( sensor_msgs::msg::Image::UniquePtr image_ptr ) = 0;
+    virtual void publish( std::unique_ptr<cv_bridge::ROSCvMatContainer> container_ptr ){throw std::runtime_error("This publisher does not use type adaptation");};
     virtual size_t get_subscription_count() const = 0;
     virtual ~image_publisher() = default;
+    bool has_type_adapter(){ return has_type_adapter_; };
+    void set_type_adapter(bool value){ has_type_adapter_ = value; };
+private:
+    bool has_type_adapter_ = false;
 };
 
 // Native RCL implementation of an image publisher (needed for intra-process communication)
@@ -34,6 +39,7 @@ public:
                          const std::string & topic_name,
                          const rmw_qos_profile_t & qos );
     void publish( sensor_msgs::msg::Image::UniquePtr image_ptr ) override;
+    void publish( std::unique_ptr<cv_bridge::ROSCvMatContainer> container_ptr ) override;
     size_t get_subscription_count() const override;
 
 private:

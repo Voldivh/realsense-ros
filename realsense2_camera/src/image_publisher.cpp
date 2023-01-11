@@ -13,12 +13,17 @@ image_rcl_publisher::image_rcl_publisher( rclcpp::Node & node,
     image_publisher_impl = node.create_publisher<cv_bridge::ROSCvMatContainer>(
         topic_name,
         rclcpp::QoS( rclcpp::QoSInitialization::from_rmw( qos ), qos ) );
+    set_type_adapter(true);
 }
 
 void image_rcl_publisher::publish( sensor_msgs::msg::Image::UniquePtr image_ptr )
 {
-    auto container = std::make_unique<cv_bridge::ROSCvMatContainer>(std::move(image_ptr));
-    image_publisher_impl->publish( std::move(container) );
+    image_publisher_impl->publish( std::move(image_ptr) );
+}
+
+void image_rcl_publisher::publish( std::unique_ptr<cv_bridge::ROSCvMatContainer> container_ptr )
+{
+    image_publisher_impl->publish( std::move(container_ptr) );
 }
 
 size_t image_rcl_publisher::get_subscription_count() const
