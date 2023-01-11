@@ -1104,31 +1104,47 @@ void BaseRealSenseNode::publishFrame(rs2::frame f, const rclcpp::Time& t,
         cam_info.header.stamp = t;
         info_publisher->publish(cam_info);
 
-        // Prepare image topic to be published
-        // We use UniquePtr for allow intra-process publish when subscribers of that type are available
-        sensor_msgs::msg::Image::UniquePtr img(new sensor_msgs::msg::Image());
-
-        if (!img)
+        // Cases for publishers with type adaption and those without it
+        if(image_publisher->has_type_adapter())
         {
-            ROS_ERROR("sensor image message allocation failed, frame was dropped");
-            return;
+            std_msgs::msg::Header header;
+            header.frame_id = OPTICAL_FRAME_ID(stream);
+            header.stamp = t;
+            auto container = std::make_unique<cv_bridge::ROSCvMatContainer>(std::move(image), header);
+            if (!container)
+            {
+                ROS_ERROR("ROS CvMat container allocation failed, frame was dropped");
+                return;
+            }
+            image_publisher->publish(std::move(container));
+        } else {
+            // Prepare image topic to be published
+            // We use UniquePtr for allow intra-process publish when subscribers of that type are available
+            sensor_msgs::msg::Image::UniquePtr img(new sensor_msgs::msg::Image());
+
+            if (!img)
+            {
+                ROS_ERROR("sensor image message allocation failed, frame was dropped");
+                return;
+            }
+
+            // Convert the CV::Mat into a ROS image message (1 copy is done here)
+            cv_bridge::CvImage(std_msgs::msg::Header(), _encoding.at(bpp), image).toImageMsg(*img);
+
+            // Convert OpenCV Mat to ROS Image
+            img->header.frame_id = OPTICAL_FRAME_ID(stream);
+            img->header.stamp = t;
+            img->height = height;
+            img->width = width;
+            img->is_bigendian = false;
+            img->step = width * bpp;
+            // Transfer the unique pointer ownership to the RMW
+            sensor_msgs::msg::Image* msg_address = img.get();
+
+            image_publisher->publish(std::move(img));
+
+            ROS_DEBUG_STREAM(rs2_stream_to_string(f.get_profile().stream_type()) << " stream published, message address: " << std::hex << msg_address);
         }
-
-        // Convert the CV::Mat into a ROS image message (1 copy is done here)
-        cv_bridge::CvImage(std_msgs::msg::Header(), _encoding.at(bpp), image).toImageMsg(*img);
-
-        // Convert OpenCV Mat to ROS Image
-        img->header.frame_id = OPTICAL_FRAME_ID(stream);
-        img->header.stamp = t;
-        img->height = height;
-        img->width = width;
-        img->is_bigendian = false;
-        img->step = width * bpp;
-        // Transfer the unique pointer ownership to the RMW
-        sensor_msgs::msg::Image* msg_address = img.get();
-        image_publisher->publish(std::move(img));
-
-        ROS_DEBUG_STREAM(rs2_stream_to_string(f.get_profile().stream_type()) << " stream published, message address: " << std::hex << msg_address);
     }
     if (is_publishMetadata)
     {
